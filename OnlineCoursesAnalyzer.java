@@ -69,7 +69,36 @@ public class OnlineCoursesAnalyzer {
 
     //3
     public Map<String, List<List<String>>> getCourseListOfInstructor() {
-        return null;
+//        String[] a = courses.get(1).getEachInstructor();
+        Map<String,List<List<String>>> instructors = new HashMap<>();
+        for (int i = 0; i < courses.size(); i++) {
+            Course cur = courses.get(i);
+            List<String> a = cur.getEachInstructor();
+            for (int j = 0; j < a.size(); j++) {
+                if (instructors.containsKey(a.get(j))){
+                    if (a.size() == 1){
+                        if (!instructors.get(a.get(j)).get(0).contains(cur.getTitle()))
+                        instructors.get(a.get(j)).get(0).add(cur.getTitle());
+                    }
+                    else {
+                        if (!instructors.get(a.get(j)).get(1).contains(cur.getTitle()))
+                            instructors.get(a.get(j)).get(1).add(cur.getTitle());
+                    }
+                }else {
+                    List<String> list0 = new ArrayList<>();
+                    List<String> list1 = new ArrayList<>();
+                    if (a.size() == 1)
+                        list0.add(cur.getTitle());
+                    else list1.add(cur.getTitle());
+                    List<List<String>> b = new ArrayList<>();
+                    b.add(list0);b.add(list1);
+                    instructors.put(a.get(j),b);
+                }
+            }
+        }
+        instructors.forEach((s, lists) -> Collections.sort(lists.get(0)));
+        instructors.forEach((s, lists) -> Collections.sort(lists.get(1)));
+        return instructors;
     }
 
 
@@ -111,30 +140,42 @@ public class OnlineCoursesAnalyzer {
 //        double avgMedianAge = courses.stream().mapToDouble(Course::getMedianAge).average().getAsDouble();
 //        double avgMale = courses.stream().mapToDouble(Course::getPercentMale).average().getAsDouble();
 //        double avgBachelor = courses.stream().mapToDouble(Course::getPercentDegree).average().getAsDouble();
-        Map<String,Double> courseListAge = courses.stream().collect(Collectors.groupingBy(Course::getTitle,
+        Map<String,Double> courseListAge = courses.stream()
+            .collect(Collectors.groupingBy(Course::getNumber,
             Collectors.averagingDouble(Course::getMedianAge)));
-        Map<String,Double> courseListMale = courses.stream().collect(Collectors.groupingBy(Course::getTitle,
+        Map<String,Double> courseListMale = courses.stream()
+            .collect(Collectors.groupingBy(Course::getNumber,
             Collectors.averagingDouble(Course::getPercentMale)));
-        Map<String,Double> courseListDegree = courses.stream().collect(Collectors.groupingBy(Course::getTitle,
+        Map<String,Double> courseListDegree = courses.stream()
+            .collect(Collectors.groupingBy(Course::getNumber,
             Collectors.averagingDouble(Course::getPercentDegree)));
+        Map<String,String> courseLatest = courses.stream().sorted(Comparator.comparing(Course::getLaunchDate).reversed())
+            .collect(Collectors.groupingBy(Course::getNumber,Collectors.collectingAndThen(Collectors.toList(), courses1 -> courses1.get(0).getTitle())));
         Map<String,Double> similarities = new HashMap<>();
         for (int i = 0; i < courses.size(); i++) {
-            String key = courses.get(i).getTitle();
+            String key = courses.get(i).getNumber();
             double avgMedianAge = courseListAge.get(key);
             double avgMale = courseListMale.get(key);
             double avgBachelor = courseListDegree.get(key);
-            double similarity = Math.sqrt(age - avgMedianAge) + Math.sqrt(100*gender - avgMale) + Math.sqrt(100*isBachelorOrHigher - avgBachelor);
+            double similarity = Math.pow((age - avgMedianAge),2) + Math.pow((100*gender - avgMale),2)
+                + Math.pow((100*isBachelorOrHigher - avgBachelor),2);
             similarities.put(key,similarity);
         }
 //        double similarity = Math.sqrt(age - avgMedianAge) + Math.sqrt(100 - avgMale) - Math.sqrt(100 - avgBachelor);
         List<String> resultList = new ArrayList<>();
-        similarities.entrySet().stream().sorted(Map.Entry.<String,Double>comparingByValue())
-            .forEachOrdered(x -> resultList.add(x.getKey()));
+        similarities.entrySet().stream().sorted(Map.Entry.<String,Double>comparingByValue()
+                .thenComparing(stringDoubleEntry -> courseLatest.get(stringDoubleEntry.getKey())))
+            .distinct().forEachOrdered(x -> resultList.add(x.getKey()));
         List<String> result = new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
-            result.add(resultList.get(i));
+        for (int i = 0; i < resultList.size(); i++) {
+            result.add(courseLatest.get(resultList.get(i)));
         }
-        return result;
+        List<String> re = result.stream().distinct().toList();
+        List<String> result1 = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            result1.add(re.get(i));
+        }
+        return result1;
     }
 
 }
@@ -222,6 +263,10 @@ class Course {
 
     public String getInstructors() {
         return instructors;
+    }
+
+    public List<String> getEachInstructor(){
+        return Arrays.stream(getInstructors().split(", ")).toList();
     }
 
     public String getInstructorsAndSubject(){
